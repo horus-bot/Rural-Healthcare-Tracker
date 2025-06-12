@@ -7,18 +7,41 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependency directories
+node_modules/
+
+# Production builds
+dist/
+dist-ssr/
+build/
+
+# Vite cache
+.vite/
+
+# Local env files
+.env
+.env.*    # All env variants
+!.env.example
+
+# Local-only data
 *.local
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase (CLI-based project)
+.supabase/
+supabase/.temp/
+
+# Misc
+.trash/
+*.swp
+*~
