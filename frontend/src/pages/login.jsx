@@ -168,11 +168,7 @@ const Login = () => {
                 Sign up
               </Link>
             </p>
-            <div className="mt-4 text-xs text-gray-500">
-              <p><strong>Test accounts:</strong></p>
-              <p>Admin: test@gmail.com</p>
-              <p>Public: test1@harsh.com</p>
-            </div>
+         
           </div>
         </form>
       </div>
