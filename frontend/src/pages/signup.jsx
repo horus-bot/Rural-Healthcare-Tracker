@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { Link, useNavigate } from 'react-router-dom';
+import './signup.css'; 
 
 const SignUp = () => {
   const navigate = useNavigate();

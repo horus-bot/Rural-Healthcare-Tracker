@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext';
+import './login.css'; 
 
 const Login = () => {
   const navigate = useNavigate();
