@@ -43,22 +43,19 @@ const PieChart = ({ data, title }) => {
                 key={index}
                 d={pathData}
                 fill={colors[index % colors.length]}
-                className="transition-all duration-300 hover:opacity-80 cursor-pointer"
-                style={{
-                  filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
-                }}
+                className="chart-path"
               />
             );
           })}
         </svg>
-        <div className="space-y-2">
+        <div className="chart-legend">
           {data.map((item, index) => (
-            <div key={index} className="flex items-center">
+            <div key={index} className="legend-item">
               <div 
-                className="w-4 h-4 rounded mr-2"
-                style={{ backgroundColor: colors[index % colors.length] }}
+                className="legend-color"
+                data-color={colors[index % colors.length]}
               ></div>
-              <span className="text-sm font-medium">{item.label}: {item.value}</span>
+              <span className="legend-text">{item.label}: {item.value}</span>
             </div>
           ))}
         </div>
@@ -73,24 +70,20 @@ const BarChart = ({ data, title }) => {
   return (
     <div className="chart-container">
       <h3 className="chart-title">{title}</h3>
-      <div className="space-y-3">
+      <div className="bar-chart-container">
         {data.map((item, index) => (
-          <div key={index} className="flex items-center">
-            <div className="w-24 text-sm font-medium text-gray-700 mr-3">
+          <div key={index} className="bar-item">
+            <div className="bar-label">
               {item.label}
             </div>
-            <div className="flex-1 bg-gray-200 rounded-full h-6 relative overflow-hidden">
+            <div className="bar-track">
               <div 
-                className="h-full rounded-full transition-all duration-1000 ease-out"
-                style={{
-                  background: `linear-gradient(90deg, ${item.color || '#667eea'}, ${item.color || '#764ba2'})`,
-                  width: `${(item.value / maxValue) * 100}%`,
-                  boxShadow: `0 2px 8px ${item.color || '#667eea'}40`
-                }}
-              ></div>
-              <span className="absolute right-2 top-0 h-full flex items-center text-xs font-bold text-white">
-                {item.value}
-              </span>
+                className="bar-fill"
+                data-color={item.color}
+                data-width={`${(item.value / maxValue) * 100}%`}
+              >
+                <span className="bar-value">{item.value}</span>
+              </div>
             </div>
           </div>
         ))}
@@ -124,12 +117,10 @@ const AdminDashboard = () => {
     try {
       setDashboardData(prev => ({ ...prev, loading: true, error: null }));
 
-      // Validate userProfile before proceeding
       if (!userProfile || !userProfile.id) {
         throw new Error('User profile not available');
       }
 
-      // Get center info based on user's center_id
       let centerId = userProfile.center_id;
       let centerInfo = null;
 
@@ -147,7 +138,6 @@ const AdminDashboard = () => {
         }
       }
 
-      // Fetch equipment for the center (or all if district admin without specific center)
       let equipmentQuery = supabase
         .from('equipment')
         .select('*')
@@ -166,7 +156,6 @@ const AdminDashboard = () => {
 
       const equipmentIds = equipment?.map(eq => eq.id) || [];
 
-      // Fetch equipment history
       let historyData = [];
       if (equipmentIds.length > 0) {
         const { data: equipmentHistory, error: historyError } = await supabase
@@ -187,7 +176,6 @@ const AdminDashboard = () => {
         }
       }
 
-      // Fetch equipment transfers
       let transfersData = [];
       if (centerId) {
         const { data: transfers, error: transferError } = await supabase
@@ -210,7 +198,6 @@ const AdminDashboard = () => {
         }
       }
 
-      // Fetch maintenance requests
       let maintenanceData = [];
       if (equipmentIds.length > 0) {
         const { data: maintenanceRequests, error: maintenanceError } = await supabase
@@ -232,10 +219,9 @@ const AdminDashboard = () => {
         }
       }
 
-      // Fetch notifications for current user - with proper validation
       let notificationsData = [];
       if (userProfile.id) {
-        console.log('Fetching notifications for user ID:', userProfile.id); // Debug log
+        console.log('Fetching notifications for user ID:', userProfile.id);
         
         const { data: notifications, error: notificationError } = await supabase
           .from('notifications')
@@ -250,7 +236,6 @@ const AdminDashboard = () => {
 
         if (notificationError) {
           console.error('Notification fetch error:', notificationError);
-          // Don't throw here, just log the error and continue
         } else {
           notificationsData = notifications || [];
         }
@@ -302,14 +287,14 @@ const AdminDashboard = () => {
 
   const getStatusBadgeColor = (status) => {
     const colors = {
-      completed: 'bg-green-500 text-white',
-      approved: 'bg-blue-500 text-white',
-      pending: 'bg-yellow-500 text-white',
-      in_progress: 'bg-blue-500 text-white',
-      rejected: 'bg-red-500 text-white',
-      cancelled: 'bg-gray-500 text-white'
+      completed: 'status-completed',
+      approved: 'status-approved',
+      pending: 'status-pending',
+      in_progress: 'status-in-progress',
+      rejected: 'status-rejected',
+      cancelled: 'status-cancelled'
     };
-    return colors[status] || 'bg-gray-500 text-white';
+    return colors[status] || 'status-default';
   };
 
   // Chart data preparation
@@ -330,10 +315,10 @@ const AdminDashboard = () => {
   // Loading state
   if (userLoading) {
     return (
-      <div className="admin-dashboard flex items-center justify-center">
-        <div className="flex flex-col items-center bounce-in">
-          <div className="loading-spinner w-16 h-16 rounded-full mb-6"></div>
-          <p className="text-white text-xl font-semibold">Loading Dashboard...</p>
+      <div className="admin-dashboard dashboard-loading">
+        <div className="loading-container bounce-in">
+          <div className="loading-spinner"></div>
+          <p className="loading-text">Loading Dashboard...</p>
         </div>
       </div>
     );
@@ -342,10 +327,10 @@ const AdminDashboard = () => {
   // Error state for user profile
   if (!userProfile) {
     return (
-      <div className="admin-dashboard flex items-center justify-center">
-        <div className="text-center fade-in">
-          <h2 className="text-3xl font-bold text-white mb-4">Profile Not Found</h2>
-          <p className="text-white mb-6">Unable to load user profile. Please try logging in again.</p>
+      <div className="admin-dashboard dashboard-error">
+        <div className="error-container fade-in">
+          <h2 className="error-title">Profile Not Found</h2>
+          <p className="error-message">Unable to load user profile. Please try logging in again.</p>
           <LogoutButton />
         </div>
       </div>
@@ -357,10 +342,10 @@ const AdminDashboard = () => {
     return (
       <div className="admin-dashboard">
         <LogoutButton />
-        <div className="flex justify-center items-center h-64">
-          <div className="flex flex-col items-center bounce-in">
-            <div className="loading-spinner w-20 h-20 rounded-full mb-6"></div>
-            <p className="text-white text-xl font-semibold">Loading Dashboard Data...</p>
+        <div className="dashboard-loading-content">
+          <div className="loading-container bounce-in">
+            <div className="loading-spinner loading-spinner-large"></div>
+            <p className="loading-text">Loading Dashboard Data...</p>
           </div>
         </div>
       </div>
@@ -373,9 +358,9 @@ const AdminDashboard = () => {
     <div className="admin-dashboard">
       <LogoutButton />
       
-      <div className="max-w-7xl mx-auto p-6 space-y-8">
-        {/* Debug Info - Remove in production */}
-        <div className="debug-info rounded-xl p-4 text-sm fade-in">
+      <div className="dashboard-container">
+        {/* Debug Info */}
+        <div className="debug-info fade-in">
           <strong>🔧 Debug Info:</strong> User ID: {userProfile?.id || 'undefined'}, 
           Center ID: {userProfile?.center_id || 'undefined'}, 
           Role: {userProfile?.role || 'undefined'}
@@ -383,47 +368,45 @@ const AdminDashboard = () => {
 
         {/* Error Alert */}
         {error && (
-          <div className="bg-red-500 text-white rounded-xl p-4 fade-in">
-            <div className="flex items-center">
-              <svg className="h-6 w-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="error-alert fade-in">
+            <div className="error-alert-content">
+              <svg className="error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <h3 className="font-semibold">Dashboard Error</h3>
-                <p className="text-sm opacity-90">{error}</p>
+                <h3 className="error-alert-title">Dashboard Error</h3>
+                <p className="error-alert-message">{error}</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Header Section */}
-        <div className="dashboard-header rounded-2xl p-8 fade-in">
-          <div className="flex justify-between items-start">
-            <div className="slide-in-left">
+        <div className="dashboard-header fade-in">
+          <div className="dashboard-header-content">
+            <div className="dashboard-header-left slide-in-left">
               <h1 className="dashboard-title">Admin Dashboard</h1>
-              <p className="text-gray-600 mt-2 text-lg">Welcome back, {userProfile?.full_name || 'User'}</p>
-              <div className="mt-4 flex items-center space-x-4">
-                <span className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold">
+              <p className="dashboard-subtitle">Welcome back, {userProfile?.full_name || 'User'}</p>
+              <div className="dashboard-user-info">
+                <span className="user-role-badge">
                   {userProfile?.role === 'district_admin' ? '👨‍💼 District Administrator' : `👤 ${userProfile?.role}`}
                 </span>
                 {userProfile?.designation && (
-                  <span className="text-gray-600 font-medium">{userProfile.designation}</span>
+                  <span className="user-designation">{userProfile.designation}</span>
                 )}
               </div>
             </div>
-            <div className="text-right slide-in-left">
+            <div className="dashboard-header-right slide-in-left">
               {centerInfo ? (
                 <>
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                    {centerInfo.name}
-                  </h2>
-                  <p className="text-gray-600 font-medium">{centerInfo.type}</p>
-                  <p className="text-sm text-gray-500">{centerInfo.address}</p>
+                  <h2 className="center-name">{centerInfo.name}</h2>
+                  <p className="center-type">{centerInfo.type}</p>
+                  <p className="center-address">{centerInfo.address}</p>
                 </>
               ) : (
-                <div className="text-gray-500">
-                  <p className="text-xl font-semibold">🌐 District-wide Access</p>
-                  <p className="text-sm">Managing multiple centers</p>
+                <div className="district-access">
+                  <p className="district-title">🌐 District-wide Access</p>
+                  <p className="district-subtitle">Managing multiple centers</p>
                 </div>
               )}
             </div>
@@ -431,59 +414,65 @@ const AdminDashboard = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[{
-            title: "Total Equipment",
-            value: equipment.length,
-            icon: "📊",
-            gradient: "from-blue-500 to-blue-600",
-            bgColor: "bg-blue-100"
-          },
-          {
-            title: "Working Equipment",
-            value: equipment.filter(eq => eq.status === 'working').length,
-            icon: "✅",
-            gradient: "from-green-500 to-green-600",
-            bgColor: "bg-green-100"
-          },
-          {
-            title: "Needs Attention",
-            value: equipment.filter(eq => ['broken', 'under_repair'].includes(eq.status)).length,
-            icon: "⚠️",
-            gradient: "from-red-500 to-red-600",
-            bgColor: "bg-red-100"
-          },
-          {
-            title: "Pending Requests",
-            value: maintenanceRequests.filter(req => req.status === 'pending').length,
-            icon: "🔧",
-            gradient: "from-yellow-500 to-yellow-600",
-            bgColor: "bg-yellow-100"
-          }
-        ].map((stat, index) => (
-            <div key={index} className={`stats-card rounded-2xl p-6 bounce-in`} style={{animationDelay: `${index * 0.1}s`}}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{stat.title}</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
-                </div>
-                <div className={`stats-icon p-4 rounded-2xl ${stat.bgColor}`}>
-                  <span className="text-2xl">{stat.icon}</span>
-                </div>
+        <div className="stats-grid">
+          <div className="stats-card stats-card-1 bounce-in">
+            <div className="stats-card-content">
+              <div className="stats-info">
+                <p className="stats-label">Total Equipment</p>
+                <p className="stats-value">{equipment.length}</p>
+              </div>
+              <div className="stats-icon stats-icon-blue">
+                <span>📊</span>
               </div>
             </div>
-          ))}
+          </div>
+          
+          <div className="stats-card stats-card-2 bounce-in">
+            <div className="stats-card-content">
+              <div className="stats-info">
+                <p className="stats-label">Working Equipment</p>
+                <p className="stats-value">{equipment.filter(eq => eq.status === 'working').length}</p>
+              </div>
+              <div className="stats-icon stats-icon-green">
+                <span>✅</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="stats-card stats-card-3 bounce-in">
+            <div className="stats-card-content">
+              <div className="stats-info">
+                <p className="stats-label">Needs Attention</p>
+                <p className="stats-value">{equipment.filter(eq => ['broken', 'under_repair'].includes(eq.status)).length}</p>
+              </div>
+              <div className="stats-icon stats-icon-red">
+                <span>⚠️</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="stats-card stats-card-4 bounce-in">
+            <div className="stats-card-content">
+              <div className="stats-info">
+                <p className="stats-label">Pending Requests</p>
+                <p className="stats-value">{maintenanceRequests.filter(req => req.status === 'pending').length}</p>
+              </div>
+              <div className="stats-icon stats-icon-yellow">
+                <span>🔧</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bounce-in" style={{animationDelay: '0.2s'}}>
+        <div className="charts-grid">
+          <div className="chart-wrapper bounce-in">
             <PieChart 
               data={equipmentStatusData} 
               title="📈 Equipment Status Distribution" 
             />
           </div>
-          <div className="bounce-in" style={{animationDelay: '0.3s'}}>
+          <div className="chart-wrapper bounce-in">
             <BarChart 
               data={maintenancePriorityData} 
               title="🔧 Maintenance Priority Levels" 
@@ -492,61 +481,60 @@ const AdminDashboard = () => {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="tab-navigation rounded-2xl shadow-2xl fade-in">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-8">
-              {[{
-                key: 'overview',
-                label: '🏠 Equipment Overview',
-                icon: '🏠'
-              },
-              {
-                key: 'history',
-                label: '📜 Equipment History',
-                icon: '📜'
-              },
-              {
-                key: 'transfers',
-                label: '🔄 Transfers',
-                icon: '🔄'
-              },
-              {
-                key: 'maintenance',
-                label: '🔧 Maintenance',
-                icon: '🔧'
-              },
-              {
-                key: 'notifications',
-                label: `🔔 Notifications (${notifications.length})`,
-                icon: '🔔'
-              }].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`tab-button py-6 px-2 border-b-2 font-medium text-sm transition-all duration-300 ${
-                    activeTab === tab.key ? 'active' : ''
-                  }`}
-                >
-                  <span className="mr-2">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
+        <div className="tab-navigation fade-in">
+          <div className="tab-nav-header">
+            <nav className="tab-nav">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
+              >
+                <span>🏠</span>
+                Equipment Overview
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`tab-button ${activeTab === 'history' ? 'active' : ''}`}
+              >
+                <span>📜</span>
+                Equipment History
+              </button>
+              <button
+                onClick={() => setActiveTab('transfers')}
+                className={`tab-button ${activeTab === 'transfers' ? 'active' : ''}`}
+              >
+                <span>🔄</span>
+                Transfers
+              </button>
+              <button
+                onClick={() => setActiveTab('maintenance')}
+                className={`tab-button ${activeTab === 'maintenance' ? 'active' : ''}`}
+              >
+                <span>🔧</span>
+                Maintenance
+              </button>
+              <button
+                onClick={() => setActiveTab('notifications')}
+                className={`tab-button ${activeTab === 'notifications' ? 'active' : ''}`}
+              >
+                <span>🔔</span>
+                Notifications ({notifications.length})
+              </button>
             </nav>
           </div>
 
-          <div className="p-8">
+          <div className="tab-content">
             {/* Equipment Overview Tab */}
             {activeTab === 'overview' && (
-              <div className="fade-in">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-2xl font-bold text-gray-900">
+              <div className="tab-panel fade-in">
+                <div className="tab-panel-header">
+                  <h3 className="tab-panel-title">
                     🏠 Equipment {centerInfo ? `in ${centerInfo.name}` : 'Overview'}
                   </h3>
                   <button
                     onClick={fetchDashboardData}
-                    className="refresh-button px-6 py-3 rounded-xl font-semibold transition-all duration-300"
+                    className="refresh-button"
                   >
-                    <svg className="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="refresh-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     Refresh Data
@@ -554,33 +542,32 @@ const AdminDashboard = () => {
                 </div>
                 
                 {equipment.length === 0 ? (
-                  <div className="text-center py-16">
-                    <div className="text-6xl mb-4">📭</div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No Equipment Found</h3>
-                    <p className="text-gray-500">
+                  <div className="empty-state">
+                    <div className="empty-icon">📭</div>
+                    <h3 className="empty-title">No Equipment Found</h3>
+                    <p className="empty-message">
                       {centerInfo ? 'This center has no equipment registered.' : 'You may not have access to any centers.'}
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="equipment-grid">
                     {equipment.map((eq, index) => (
                       <div 
                         key={eq.id} 
-                        className="equipment-card rounded-2xl p-6 cursor-pointer bounce-in"
-                        style={{animationDelay: `${index * 0.05}s`}}
+                        className="equipment-card bounce-in"
                         onClick={() => setSelectedEquipment(eq)}
                       >
-                        <div className="flex justify-between items-start mb-4">
-                          <h4 className="font-bold text-gray-900 text-lg truncate">{eq.name}</h4>
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(eq.status)}`}>
+                        <div className="equipment-card-header">
+                          <h4 className="equipment-name">{eq.name}</h4>
+                          <span className={`status-badge ${getStatusColor(eq.status)}`}>
                             {eq.status}
                           </span>
                         </div>
-                        <p className="text-gray-600 mb-2 font-medium">{eq.type} - {eq.category}</p>
-                        <p className="text-gray-500 font-mono text-sm bg-gray-100 px-2 py-1 rounded">{eq.qr_code}</p>
-                        <p className="text-gray-500 mt-2">📍 {eq.location_within_center}</p>
+                        <p className="equipment-type">{eq.type} - {eq.category}</p>
+                        <p className="equipment-qr">{eq.qr_code}</p>
+                        <p className="equipment-location">📍 {eq.location_within_center}</p>
                         {eq.is_critical && (
-                          <span className="inline-block mt-3 px-3 py-1 rounded-full text-xs font-bold priority-critical">
+                          <span className="critical-badge">
                             🚨 Critical Equipment
                           </span>
                         )}
@@ -593,49 +580,51 @@ const AdminDashboard = () => {
 
             {/* Equipment History Tab */}
             {activeTab === 'history' && (
-              <div className="fade-in">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">📜 Recent Equipment History</h3>
+              <div className="tab-panel fade-in">
+                <h3 className="tab-panel-title">📜 Recent Equipment History</h3>
                 {equipmentHistory.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-4">📝</div>
-                    <p className="text-gray-500 text-lg">No equipment history available</p>
+                  <div className="empty-state">
+                    <div className="empty-icon">📝</div>
+                    <p className="empty-message">No equipment history available</p>
                   </div>
                 ) : (
                   <div className="data-table">
-                    <table className="min-w-full">
+                    <table className="table">
                       <thead className="table-header">
                         <tr>
-                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Equipment</th>
-                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Change Type</th>
-                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Changed By</th>
-                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Changes</th>
-                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Date</th>
+                          <th className="table-th">Equipment</th>
+                          <th className="table-th">Change Type</th>
+                          <th className="table-th">Changed By</th>
+                          <th className="table-th">Changes</th>
+                          <th className="table-th">Date</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      <tbody className="table-body">
                         {equipmentHistory.map((history, index) => (
-                          <tr key={history.id} className="table-row slide-in-left" style={{animationDelay: `${index * 0.05}s`}}>
-                            <td className="px-6 py-4">
-                              <div>
-                                <div className="font-semibold text-gray-900">{history.equipment?.name || 'Unknown Equipment'}</div>
-                                <div className="text-sm text-gray-500 font-mono">{history.equipment?.qr_code}</div>
+                          <tr key={history.id} className="table-row slide-in-left">
+                            <td className="table-td">
+                              <div className="equipment-info">
+                                <div className="equipment-info-name">{history.equipment?.name || 'Unknown Equipment'}</div>
+                                <div className="equipment-info-qr">{history.equipment?.qr_code}</div>
                               </div>
                             </td>
-                            <td className="px-6 py-4">
-                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500 text-white">
+                            <td className="table-td">
+                              <span className="change-type-badge">
                                 {history.change_type}
                               </span>
                             </td>
-                            <td className="px-6 py-4 font-medium text-gray-900">
-                              {history.changed_by_user?.full_name || 'Unknown User'}
+                            <td className="table-td">
+                              <span className="user-name">{history.changed_by_user?.full_name || 'Unknown User'}</span>
                             </td>
-                            <td className="px-6 py-4">
-                              <span className="text-red-600 font-semibold">{history.old_value}</span>
-                              <span className="mx-2 text-gray-400">→</span>
-                              <span className="text-green-600 font-semibold">{history.new_value}</span>
+                            <td className="table-td">
+                              <div className="change-values">
+                                <span className="old-value">{history.old_value}</span>
+                                <span className="arrow">→</span>
+                                <span className="new-value">{history.new_value}</span>
+                              </div>
                             </td>
-                            <td className="px-6 py-4 text-gray-500 font-medium">
-                              {new Date(history.created_at).toLocaleDateString()}
+                            <td className="table-td">
+                              <span className="date-text">{new Date(history.created_at).toLocaleDateString()}</span>
                             </td>
                           </tr>
                         ))}
@@ -648,57 +637,57 @@ const AdminDashboard = () => {
 
             {/* Equipment Transfers Tab */}
             {activeTab === 'transfers' && (
-              <div className="fade-in">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">🔄 Equipment Transfers</h3>
+              <div className="tab-panel fade-in">
+                <h3 className="tab-panel-title">🔄 Equipment Transfers</h3>
                 {transfers.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-4">📦</div>
-                    <p className="text-gray-500 text-lg">No transfers found</p>
+                  <div className="empty-state">
+                    <div className="empty-icon">📦</div>
+                    <p className="empty-message">No transfers found</p>
                   </div>
                 ) : (
                   <div className="data-table">
-                    <table className="min-w-full">
+                    <table className="table">
                       <thead className="table-header">
                         <tr>
-                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Equipment</th>
-                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">From → To</th>
-                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Requested By</th>
-                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Reason</th>
-                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Date</th>
+                          <th className="table-th">Equipment</th>
+                          <th className="table-th">From → To</th>
+                          <th className="table-th">Requested By</th>
+                          <th className="table-th">Reason</th>
+                          <th className="table-th">Status</th>
+                          <th className="table-th">Date</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      <tbody className="table-body">
                         {transfers.map((transfer, index) => (
-                          <tr key={transfer.id} className="table-row slide-in-left" style={{animationDelay: `${index * 0.05}s`}}>
-                            <td className="px-6 py-4">
-                              <div>
-                                <div className="font-semibold text-gray-900">{transfer.equipment?.name || 'Unknown Equipment'}</div>
-                                <div className="text-sm text-gray-500 font-mono">{transfer.equipment?.qr_code}</div>
+                          <tr key={transfer.id} className="table-row slide-in-left">
+                            <td className="table-td">
+                              <div className="equipment-info">
+                                <div className="equipment-info-name">{transfer.equipment?.name || 'Unknown Equipment'}</div>
+                                <div className="equipment-info-qr">{transfer.equipment?.qr_code}</div>
                               </div>
                             </td>
-                            <td className="px-6 py-4">
-                              <div className="space-y-1">
-                                <div className="font-semibold text-blue-600">{transfer.from_center?.name || 'Unknown Center'}</div>
-                                <div className="text-center text-gray-400">↓</div>
-                                <div className="font-semibold text-green-600">{transfer.to_center?.name || 'Unknown Center'}</div>
+                            <td className="table-td">
+                              <div className="transfer-centers">
+                                <div className="from-center">{transfer.from_center?.name || 'Unknown Center'}</div>
+                                <div className="transfer-arrow">↓</div>
+                                <div className="to-center">{transfer.to_center?.name || 'Unknown Center'}</div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 font-medium text-gray-900">
-                              {transfer.requested_by_user?.full_name || 'Unknown User'}
+                            <td className="table-td">
+                              <span className="user-name">{transfer.requested_by_user?.full_name || 'Unknown User'}</span>
                             </td>
-                            <td className="px-6 py-4">
-                              <div className="max-w-xs truncate font-medium text-gray-700" title={transfer.transfer_reason}>
+                            <td className="table-td">
+                              <div className="transfer-reason" title={transfer.transfer_reason}>
                                 {transfer.transfer_reason}
                               </div>
                             </td>
-                            <td className="px-6 py-4">
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(transfer.status)}`}>
+                            <td className="table-td">
+                              <span className={`status-badge ${getStatusBadgeColor(transfer.status)}`}>
                                 {transfer.status}
                               </span>
                             </td>
-                            <td className="px-6 py-4 text-gray-500 font-medium">
-                              {new Date(transfer.transfer_date).toLocaleDateString()}
+                            <td className="table-td">
+                              <span className="date-text">{new Date(transfer.transfer_date).toLocaleDateString()}</span>
                             </td>
                           </tr>
                         ))}
@@ -711,47 +700,47 @@ const AdminDashboard = () => {
 
             {/* Maintenance Requests Tab */}
             {activeTab === 'maintenance' && (
-              <div className="fade-in">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">🔧 Maintenance Requests</h3>
+              <div className="tab-panel fade-in">
+                <h3 className="tab-panel-title">🔧 Maintenance Requests</h3>
                 {maintenanceRequests.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-4">🛠️</div>
-                    <p className="text-gray-500 text-lg">No maintenance requests found</p>
+                  <div className="empty-state">
+                    <div className="empty-icon">🛠️</div>
+                    <p className="empty-message">No maintenance requests found</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="maintenance-list">
                     {maintenanceRequests.map((request, index) => (
-                      <div key={request.id} className="equipment-card rounded-2xl p-6 slide-in-left" style={{animationDelay: `${index * 0.05}s`}}>
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex-1">
-                            <h4 className="font-bold text-gray-900 text-lg">{request.title}</h4>
-                            <p className="text-gray-600 font-medium">
+                      <div key={request.id} className="maintenance-card slide-in-left">
+                        <div className="maintenance-card-header">
+                          <div className="maintenance-info">
+                            <h4 className="maintenance-title">{request.title}</h4>
+                            <p className="maintenance-equipment">
                               {request.equipment?.name || 'Unknown Equipment'} ({request.equipment?.qr_code})
                             </p>
-                            <p className="text-gray-600 mt-1 font-mono text-sm">Request #{request.request_number}</p>
+                            <p className="maintenance-request-number">Request #{request.request_number}</p>
                           </div>
-                          <div className="flex space-x-2 ml-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${getPriorityColor(request.priority)}`}>
+                          <div className="maintenance-badges">
+                            <span className={`priority-badge ${getPriorityColor(request.priority)}`}>
                               {request.priority}
                             </span>
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(request.status)}`}>
+                            <span className={`status-badge ${getStatusBadgeColor(request.status)}`}>
                               {request.status}
                             </span>
                           </div>
                         </div>
-                        <p className="text-gray-700 mb-4 font-medium leading-relaxed">{request.description}</p>
-                        <div className="flex flex-wrap justify-between items-center text-sm text-gray-500 gap-2">
-                          <div className="flex flex-wrap gap-4">
-                            <span className="font-medium">👤 Requested by: {request.requested_by_user?.full_name || 'Unknown User'}</span>
+                        <p className="maintenance-description">{request.description}</p>
+                        <div className="maintenance-meta">
+                          <div className="maintenance-users">
+                            <span className="requested-by">👤 Requested by: {request.requested_by_user?.full_name || 'Unknown User'}</span>
                             {request.assigned_to_user && (
-                              <span className="font-medium">🔧 Assigned to: {request.assigned_to_user.full_name}</span>
+                              <span className="assigned-to">🔧 Assigned to: {request.assigned_to_user.full_name}</span>
                             )}
                           </div>
-                          <div className="flex gap-4">
+                          <div className="maintenance-details">
                             {request.estimated_cost && (
-                              <span className="font-semibold text-green-600">💰 Cost: ₹{Number(request.estimated_cost).toLocaleString()}</span>
+                              <span className="estimated-cost">💰 Cost: ₹{Number(request.estimated_cost).toLocaleString()}</span>
                             )}
-                            <span className="font-medium">📅 {new Date(request.requested_date).toLocaleDateString()}</span>
+                            <span className="request-date">📅 {new Date(request.requested_date).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </div>
@@ -763,48 +752,49 @@ const AdminDashboard = () => {
 
             {/* Notifications Tab */}
             {activeTab === 'notifications' && (
-              <div className="fade-in">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">🔔 Recent Notifications</h3>
+              <div className="tab-panel fade-in">
+                <h3 className="tab-panel-title">🔔 Recent Notifications</h3>
                 {notifications.length === 0 ? (
-                  <div className="text-center py-16">
-                    <div className="text-6xl mb-4">🔕</div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No Notifications</h3>
-                    <p className="text-gray-500 text-lg">You're all caught up! 🎉</p>
+                  <div className="empty-state">
+                    <div className="empty-icon">🔕</div>
+                    <h3 className="empty-title">No Notifications</h3>
+                    <p className="empty-message">You're all caught up! 🎉</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="notifications-list">
                     {notifications.map((notification, index) => (
                       <div 
                         key={notification.id} 
-                        className={`rounded-2xl p-6 transition-all duration-300 slide-in-left ${
+                        className={`notification-card slide-in-left ${
                           notification.is_read ? 'notification-read' : 'notification-unread'
                         }`}
-                        style={{animationDelay: `${index * 0.05}s`}}
                       >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2 flex-wrap">
-                              <h4 className="font-bold text-gray-900 text-lg">{notification.title}</h4>
-                              <span className={`px-3 py-1 rounded-full text-xs font-bold ${getPriorityColor(notification.priority)}`}>
-                                {notification.priority}
-                              </span>
-                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-500 text-white">
-                                {notification.type}
-                              </span>
+                        <div className="notification-content">
+                          <div className="notification-main">
+                            <div className="notification-header">
+                              <h4 className="notification-title">{notification.title}</h4>
+                              <div className="notification-badges">
+                                <span className={`priority-badge ${getPriorityColor(notification.priority)}`}>
+                                  {notification.priority}
+                                </span>
+                                <span className="notification-type-badge">
+                                  {notification.type}
+                                </span>
+                              </div>
                             </div>
-                            <p className="text-gray-700 mb-3 font-medium leading-relaxed">{notification.message}</p>
+                            <p className="notification-message">{notification.message}</p>
                             {notification.equipment && (
-                              <p className="text-sm text-gray-500 font-medium bg-gray-100 px-3 py-1 rounded-lg inline-block">
+                              <p className="notification-equipment">
                                 🔧 Equipment: {notification.equipment.name} ({notification.equipment.qr_code})
                               </p>
                             )}
                           </div>
-                          <div className="text-right ml-6">
-                            <div className="text-sm text-gray-500 font-medium whitespace-nowrap">
+                          <div className="notification-side">
+                            <div className="notification-date">
                               📅 {new Date(notification.created_at).toLocaleDateString()}
                             </div>
                             {!notification.is_read && (
-                              <div className="w-3 h-3 bg-blue-500 rounded-full mt-2 ml-auto animate-pulse"></div>
+                              <div className="notification-indicator"></div>
                             )}
                           </div>
                         </div>
@@ -819,162 +809,137 @@ const AdminDashboard = () => {
 
         {/* Equipment Detail Modal */}
         {selectedEquipment && (
-          <div className="modal-overlay fixed inset-0 flex items-center justify-center z-50 p-4">
-            <div className="modal-content rounded-3xl p-8 max-w-6xl w-full max-h-screen overflow-y-auto">
-              <div className="flex justify-between items-start mb-8">
-                <div>
-                  <h3 className="text-3xl font-bold text-gray-900">{selectedEquipment.name}</h3>
-                  <p className="text-lg text-gray-500 font-mono mt-2 bg-gray-100 px-3 py-1 rounded-lg inline-block">{selectedEquipment.qr_code}</p>
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className="modal-header">
+                <div className="modal-title-section">
+                  <h3 className="modal-title">{selectedEquipment.name}</h3>
+                  <p className="modal-qr">{selectedEquipment.qr_code}</p>
                 </div>
                 <button 
                   onClick={() => setSelectedEquipment(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-full"
+                  className="modal-close"
                 >
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="modal-close-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="space-y-6">
-                  <div className="bg-gray-50 rounded-2xl p-6">
-                    <h4 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
-                      <span className="mr-2">📋</span> Basic Information
-                    </h4>
-                    <div className="space-y-3">
-                      {[{
-                        label: 'Status',
-                        value: selectedEquipment.status,
-                        special: true
-                      },
-                      {
-                        label: 'Type',
-                        value: selectedEquipment.type
-                      },
-                      {
-                        label: 'Category',
-                        value: selectedEquipment.category
-                      },
-                      {
-                        label: 'Manufacturer',
-                        value: selectedEquipment.manufacturer || 'N/A'
-                      },
-                      {
-                        label: 'Model',
-                        value: selectedEquipment.model || 'N/A'
-                      },
-                      {
-                        label: 'Serial Number',
-                        value: selectedEquipment.serial_number || 'N/A',
-                        mono: true
-                      }
-                    ].map((item, index) => (
-                        <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200">
-                          <span className="font-medium text-gray-600">{item.label}:</span>
-                          {item.special ? (
-                            <span className={`px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(item.value)}`}>
-                              {item.value}
-                            </span>
-                          ) : (
-                            <span className={`font-semibold text-gray-900 ${item.mono ? 'font-mono text-sm' : ''}`}>
-                              {item.value}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-2xl p-6">
-                    <h4 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
-                      <span className="mr-2">💰</span> Location & Financial
-                    </h4>
-                    <div className="space-y-3">
-                      {[{
-                        label: 'Location',
-                        value: selectedEquipment.location_within_center || 'N/A'
-                      },
-                      {
-                        label: 'Purchase Cost',
-                        value: selectedEquipment.purchase_cost ? `₹${Number(selectedEquipment.purchase_cost).toLocaleString()}` : 'N/A'
-                      },
-                      {
-                        label: 'Current Value',
-                        value: selectedEquipment.current_value ? `₹${Number(selectedEquipment.current_value).toLocaleString()}` : 'N/A'
-                      }
-                    ].map((item, index) => (
-                        <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200">
-                          <span className="font-medium text-gray-600">{item.label}:</span>
-                          <span className="font-semibold text-gray-900">{item.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="bg-gray-50 rounded-2xl p-6">
-                    <h4 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
-                      <span className="mr-2">📅</span> Dates & Maintenance
-                    </h4>
-                    <div className="space-y-3">
-                      {[{
-                        label: 'Installation Date',
-                        value: selectedEquipment.installation_date ? new Date(selectedEquipment.installation_date).toLocaleDateString() : 'N/A'
-                      },
-                      {
-                        label: 'Warranty Expires',
-                        value: selectedEquipment.warranty_expiry_date ? new Date(selectedEquipment.warranty_expiry_date).toLocaleDateString() : 'N/A'
-                      },
-                      {
-                        label: 'Next Maintenance',
-                        value: selectedEquipment.next_maintenance_due ? new Date(selectedEquipment.next_maintenance_due).toLocaleDateString() : 'N/A'
-                      },
-                      {
-                        label: 'Critical Equipment',
-                        value: selectedEquipment.is_critical ? 'Yes' : 'No',
-                        critical: selectedEquipment.is_critical
-                      }
-                    ].map((item, index) => (
-                        <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200">
-                          <span className="font-medium text-gray-600">{item.label}:</span>
-                          <span className={`font-semibold ${item.critical ? 'text-red-600' : 'text-gray-900'}`}>
-                            {item.value}
+              <div className="modal-body">
+                <div className="modal-sections">
+                  <div className="modal-section">
+                    <div className="info-section">
+                      <h4 className="info-section-title">
+                        <span>📋</span> Basic Information
+                      </h4>
+                      <div className="info-items">
+                        <div className="info-item">
+                          <span className="info-label">Status:</span>
+                          <span className={`status-badge ${getStatusColor(selectedEquipment.status)}`}>
+                            {selectedEquipment.status}
                           </span>
                         </div>
-                      ))}
+                        <div className="info-item">
+                          <span className="info-label">Type:</span>
+                          <span className="info-value">{selectedEquipment.type}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Category:</span>
+                          <span className="info-value">{selectedEquipment.category}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Manufacturer:</span>
+                          <span className="info-value">{selectedEquipment.manufacturer || 'N/A'}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Model:</span>
+                          <span className="info-value">{selectedEquipment.model || 'N/A'}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Serial Number:</span>
+                          <span className="info-value info-value-mono">{selectedEquipment.serial_number || 'N/A'}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  {selectedEquipment.notes && (
-                    <div className="bg-gray-50 rounded-2xl p-6">
-                      <h4 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
-                        <span className="mr-2">📝</span> Notes
+                    <div className="info-section">
+                      <h4 className="info-section-title">
+                        <span>💰</span> Location & Financial
                       </h4>
-                      <p className="text-gray-900 bg-white p-4 rounded-xl font-medium leading-relaxed">
-                        {selectedEquipment.notes}
-                      </p>
+                      <div className="info-items">
+                        <div className="info-item">
+                          <span className="info-label">Location:</span>
+                          <span className="info-value">{selectedEquipment.location_within_center || 'N/A'}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Purchase Cost:</span>
+                          <span className="info-value">{selectedEquipment.purchase_cost ? `₹${Number(selectedEquipment.purchase_cost).toLocaleString()}` : 'N/A'}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Current Value:</span>
+                          <span className="info-value">{selectedEquipment.current_value ? `₹${Number(selectedEquipment.current_value).toLocaleString()}` : 'N/A'}</span>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
 
-              {selectedEquipment.specifications && (
-                <div className="mt-8 bg-gray-50 rounded-2xl p-6">
-                  <h4 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
-                    <span className="mr-2">⚙️</span> Technical Specifications
-                  </h4>
-                  <div className="bg-white p-6 rounded-xl">
-                    <pre className="text-sm text-gray-900 whitespace-pre-wrap overflow-x-auto font-mono">
-                      {typeof selectedEquipment.specifications === 'string' 
-                        ? selectedEquipment.specifications 
-                        : JSON.stringify(selectedEquipment.specifications, null, 2)
-                      }
-                    </pre>
+                  <div className="modal-section">
+                    <div className="info-section">
+                      <h4 className="info-section-title">
+                        <span>📅</span> Dates & Maintenance
+                      </h4>
+                      <div className="info-items">
+                        <div className="info-item">
+                          <span className="info-label">Installation Date:</span>
+                          <span className="info-value">{selectedEquipment.installation_date ? new Date(selectedEquipment.installation_date).toLocaleDateString() : 'N/A'}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Warranty Expires:</span>
+                          <span className="info-value">{selectedEquipment.warranty_expiry_date ? new Date(selectedEquipment.warranty_expiry_date).toLocaleDateString() : 'N/A'}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Next Maintenance:</span>
+                          <span className="info-value">{selectedEquipment.next_maintenance_due ? new Date(selectedEquipment.next_maintenance_due).toLocaleDateString() : 'N/A'}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Critical Equipment:</span>
+                          <span className={`info-value ${selectedEquipment.is_critical ? 'critical-text' : ''}`}>
+                            {selectedEquipment.is_critical ? 'Yes' : 'No'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedEquipment.notes && (
+                      <div className="info-section">
+                        <h4 className="info-section-title">
+                          <span>📝</span> Notes
+                        </h4>
+                        <p className="equipment-notes">
+                          {selectedEquipment.notes}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
+
+                {selectedEquipment.specifications && (
+                  <div className="specifications-section">
+                    <h4 className="info-section-title">
+                      <span>⚙️</span> Technical Specifications
+                    </h4>
+                    <div className="specifications-content">
+                      <pre className="specifications-text">
+                        {typeof selectedEquipment.specifications === 'string' 
+                          ? selectedEquipment.specifications 
+                          : JSON.stringify(selectedEquipment.specifications, null, 2)
+                        }
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
