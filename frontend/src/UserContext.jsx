@@ -6,12 +6,45 @@ const UserContext = createContext();
 export function UserProvider({ children }) {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let mounted = true;
 
+    const initializeAuth = async () => {
+      console.log('🚀 Initializing auth...');
+      
+      try {
+        // Check for existing session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('❌ Session error:', sessionError);
+          setError(sessionError.message);
+          setLoading(false);
+          return;
+        }
+
+        if (session?.user) {
+          console.log('✅ Existing session found:', session.user.email);
+          setUser(session.user);
+          await fetchUserProfile(session.user.id);
+        } else {
+          console.log('ℹ️ No existing session found');
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('❌ Auth initialization error:', error);
+        setError(error.message);
+        setLoading(false);
+      }
+    };
+
+    // Initialize auth state
+    initializeAuth();
+
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔄 Auth event:', event, session?.user?.email);
       
@@ -43,54 +76,49 @@ export function UserProvider({ children }) {
     console.log('🔍 Starting profile fetch for:', authId);
     
     try {
-      // Test 1: Simple count query
-      console.log('🧪 Test 1: Checking if users table exists...');
-      const { count, error: countError } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true });
-      
-      console.log('📊 Users table count result:', { count, countError });
-      
-      if (countError) {
-        console.error('❌ Users table access failed:', countError);
-        setError(`Table access error: ${countError.message}`);
-        setLoading(false);
-        return;
-      }
+      setLoading(true);
+      setError(null);
 
-      // Test 2: Get all users (limit 1)
-      console.log('🧪 Test 2: Fetching first user...');
-      const { data: firstUser, error: firstError } = await supabase
-        .from('users')
-        .select('auth_id, email, role')
-        .limit(1);
-      
-      console.log('📊 First user result:', { firstUser, firstError });
-
-      // Test 3: Search for our specific user
-      console.log('🧪 Test 3: Searching for specific user...');
+      // Direct query for the user profile
+      console.log('🔎 Fetching user profile...');
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('auth_id, email, role, full_name, is_active')
-        .eq('auth_id', authId);
-      
-      console.log('📊 User search result:', { userData, userError });
+        .select(`
+          *,
+          center:center_id (
+            id,
+            name,
+            type,
+            address
+          )
+        `)
+        .eq('auth_id', authId)
+        .single(); // Use single() to get one record
 
       if (userError) {
-        console.error('❌ User search failed:', userError);
-        setError(`User search error: ${userError.message}`);
-      } else if (userData && userData.length > 0) {
-        console.log('✅ User found:', userData[0]);
-        setUserProfile(userData[0]);
+        console.error('❌ User profile fetch error:', userError);
+        
+        if (userError.code === 'PGRST116') {
+          // No rows returned
+          setError('User profile not found. Please contact administrator.');
+        } else {
+          setError(`Database error: ${userError.message}`);
+        }
+        setUserProfile(null);
+      } else if (userData) {
+        console.log('✅ User profile loaded:', userData);
+        setUserProfile(userData);
         setError(null);
       } else {
-        console.log('⚠️ No user found with auth_id:', authId);
+        console.log('⚠️ No user data returned');
         setError('User profile not found');
+        setUserProfile(null);
       }
 
     } catch (error) {
       console.error('❌ Profile fetch exception:', error);
       setError(`Fetch error: ${error.message}`);
+      setUserProfile(null);
     } finally {
       console.log('🏁 Profile fetch completed');
       setLoading(false);
@@ -99,13 +127,16 @@ export function UserProvider({ children }) {
 
   const signOut = async () => {
     try {
+      setLoading(true);
       await supabase.auth.signOut();
       setUser(null);
       setUserProfile(null);
       setError(null);
-      setLoading(false);
     } catch (error) {
       console.error('❌ Sign out error:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
