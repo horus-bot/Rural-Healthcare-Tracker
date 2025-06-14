@@ -2,6 +2,102 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useUser } from '../UserContext';
 import LogoutButton from '../components/LogoutButton';
+import './AdminDashboard.css';
+
+// Simple Chart Components
+const PieChart = ({ data, title }) => {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  let currentAngle = 0;
+  
+  const colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe'];
+
+  return (
+    <div className="chart-container">
+      <h3 className="chart-title">{title}</h3>
+      <div className="flex items-center justify-center">
+        <svg width="200" height="200" className="mr-6">
+          {data.map((item, index) => {
+            const percentage = (item.value / total) * 100;
+            const angle = (percentage / 100) * 360;
+            const startAngle = currentAngle;
+            const endAngle = currentAngle + angle;
+            
+            const x1 = 100 + 80 * Math.cos((startAngle * Math.PI) / 180);
+            const y1 = 100 + 80 * Math.sin((startAngle * Math.PI) / 180);
+            const x2 = 100 + 80 * Math.cos((endAngle * Math.PI) / 180);
+            const y2 = 100 + 80 * Math.sin((endAngle * Math.PI) / 180);
+            
+            const largeArcFlag = angle > 180 ? 1 : 0;
+            
+            const pathData = [
+              `M 100 100`,
+              `L ${x1} ${y1}`,
+              `A 80 80 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+              'Z'
+            ].join(' ');
+            
+            currentAngle += angle;
+            
+            return (
+              <path
+                key={index}
+                d={pathData}
+                fill={colors[index % colors.length]}
+                className="transition-all duration-300 hover:opacity-80 cursor-pointer"
+                style={{
+                  filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
+                }}
+              />
+            );
+          })}
+        </svg>
+        <div className="space-y-2">
+          {data.map((item, index) => (
+            <div key={index} className="flex items-center">
+              <div 
+                className="w-4 h-4 rounded mr-2"
+                style={{ backgroundColor: colors[index % colors.length] }}
+              ></div>
+              <span className="text-sm font-medium">{item.label}: {item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const BarChart = ({ data, title }) => {
+  const maxValue = Math.max(...data.map(item => item.value));
+  
+  return (
+    <div className="chart-container">
+      <h3 className="chart-title">{title}</h3>
+      <div className="space-y-3">
+        {data.map((item, index) => (
+          <div key={index} className="flex items-center">
+            <div className="w-24 text-sm font-medium text-gray-700 mr-3">
+              {item.label}
+            </div>
+            <div className="flex-1 bg-gray-200 rounded-full h-6 relative overflow-hidden">
+              <div 
+                className="h-full rounded-full transition-all duration-1000 ease-out"
+                style={{
+                  background: `linear-gradient(90deg, ${item.color || '#667eea'}, ${item.color || '#764ba2'})`,
+                  width: `${(item.value / maxValue) * 100}%`,
+                  boxShadow: `0 2px 8px ${item.color || '#667eea'}40`
+                }}
+              ></div>
+              <span className="absolute right-2 top-0 h-full flex items-center text-xs font-bold text-white">
+                {item.value}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const AdminDashboard = () => {
   const { user, userProfile, loading: userLoading } = useUser();
@@ -185,44 +281,59 @@ const AdminDashboard = () => {
 
   const getStatusColor = (status) => {
     const colors = {
-      working: 'bg-green-100 text-green-800',
-      broken: 'bg-red-100 text-red-800',
-      under_repair: 'bg-yellow-100 text-yellow-800',
-      idle: 'bg-gray-100 text-gray-800',
-      decommissioned: 'bg-red-100 text-red-600'
+      working: 'status-working',
+      broken: 'status-broken',
+      under_repair: 'status-under-repair',
+      idle: 'status-idle',
+      decommissioned: 'status-broken'
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'status-idle';
   };
 
   const getPriorityColor = (priority) => {
     const colors = {
-      critical: 'bg-red-100 text-red-800',
-      high: 'bg-orange-100 text-orange-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      low: 'bg-green-100 text-green-800'
+      critical: 'priority-critical',
+      high: 'priority-high',
+      medium: 'priority-medium',
+      low: 'priority-low'
     };
-    return colors[priority] || 'bg-gray-100 text-gray-800';
+    return colors[priority] || 'priority-low';
   };
 
   const getStatusBadgeColor = (status) => {
     const colors = {
-      completed: 'bg-green-100 text-green-800',
-      approved: 'bg-blue-100 text-blue-800',
-      pending: 'bg-yellow-100 text-yellow-800',
-      in_progress: 'bg-blue-100 text-blue-800',
-      rejected: 'bg-red-100 text-red-800',
-      cancelled: 'bg-gray-100 text-gray-800'
+      completed: 'bg-green-500 text-white',
+      approved: 'bg-blue-500 text-white',
+      pending: 'bg-yellow-500 text-white',
+      in_progress: 'bg-blue-500 text-white',
+      rejected: 'bg-red-500 text-white',
+      cancelled: 'bg-gray-500 text-white'
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'bg-gray-500 text-white';
   };
+
+  // Chart data preparation
+  const equipmentStatusData = [
+    { label: 'Working', value: dashboardData.equipment.filter(eq => eq.status === 'working').length, color: '#4CAF50' },
+    { label: 'Broken', value: dashboardData.equipment.filter(eq => eq.status === 'broken').length, color: '#f44336' },
+    { label: 'Under Repair', value: dashboardData.equipment.filter(eq => eq.status === 'under_repair').length, color: '#FF9800' },
+    { label: 'Idle', value: dashboardData.equipment.filter(eq => eq.status === 'idle').length, color: '#9E9E9E' }
+  ].filter(item => item.value > 0);
+
+  const maintenancePriorityData = [
+    { label: 'Critical', value: dashboardData.maintenanceRequests.filter(req => req.priority === 'critical').length, color: '#d32f2f' },
+    { label: 'High', value: dashboardData.maintenanceRequests.filter(req => req.priority === 'high').length, color: '#FF5722' },
+    { label: 'Medium', value: dashboardData.maintenanceRequests.filter(req => req.priority === 'medium').length, color: '#FF9800' },
+    { label: 'Low', value: dashboardData.maintenanceRequests.filter(req => req.priority === 'low').length, color: '#4CAF50' }
+  ].filter(item => item.value > 0);
 
   // Loading state
   if (userLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <p className="mt-4 text-gray-600">Loading user profile...</p>
+      <div className="admin-dashboard flex items-center justify-center">
+        <div className="flex flex-col items-center bounce-in">
+          <div className="loading-spinner w-16 h-16 rounded-full mb-6"></div>
+          <p className="text-white text-xl font-semibold">Loading Dashboard...</p>
         </div>
       </div>
     );
@@ -231,28 +342,25 @@ const AdminDashboard = () => {
   // Error state for user profile
   if (!userProfile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Profile Not Found</h2>
-          <p className="text-gray-600 mb-4">Unable to load user profile. Please try logging in again.</p>
+      <div className="admin-dashboard flex items-center justify-center">
+        <div className="text-center fade-in">
+          <h2 className="text-3xl font-bold text-white mb-4">Profile Not Found</h2>
+          <p className="text-white mb-6">Unable to load user profile. Please try logging in again.</p>
           <LogoutButton />
         </div>
       </div>
     );
   }
 
-  // Debug log for user profile
-  console.log('User Profile:', userProfile); // Debug log
-
   // Dashboard loading state
   if (dashboardData.loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="admin-dashboard">
         <LogoutButton />
         <div className="flex justify-center items-center h-64">
-          <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
-            <p className="mt-4 text-gray-600">Loading dashboard data...</p>
+          <div className="flex flex-col items-center bounce-in">
+            <div className="loading-spinner w-20 h-20 rounded-full mb-6"></div>
+            <p className="text-white text-xl font-semibold">Loading Dashboard Data...</p>
           </div>
         </div>
       </div>
@@ -262,59 +370,59 @@ const AdminDashboard = () => {
   const { centerInfo, equipment, equipmentHistory, transfers, maintenanceRequests, notifications, error } = dashboardData;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="admin-dashboard">
       <LogoutButton />
       
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="max-w-7xl mx-auto p-6 space-y-8">
         {/* Debug Info - Remove in production */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm">
-          <strong>Debug Info:</strong> User ID: {userProfile?.id || 'undefined'}, 
+        <div className="debug-info rounded-xl p-4 text-sm fade-in">
+          <strong>🔧 Debug Info:</strong> User ID: {userProfile?.id || 'undefined'}, 
           Center ID: {userProfile?.center_id || 'undefined'}, 
           Role: {userProfile?.role || 'undefined'}
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Dashboard Error</h3>
-                <p className="text-sm text-red-700 mt-1">{error}</p>
+          <div className="bg-red-500 text-white rounded-xl p-4 fade-in">
+            <div className="flex items-center">
+              <svg className="h-6 w-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <h3 className="font-semibold">Dashboard Error</h3>
+                <p className="text-sm opacity-90">{error}</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Header Section */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="dashboard-header rounded-2xl p-8 fade-in">
           <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-gray-600 mt-1">Welcome back, {userProfile?.full_name || 'User'}</p>
-              <div className="mt-2 text-sm text-gray-500">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
-                  {userProfile?.role === 'district_admin' ? 'District Administrator' : userProfile?.role}
+            <div className="slide-in-left">
+              <h1 className="dashboard-title">Admin Dashboard</h1>
+              <p className="text-gray-600 mt-2 text-lg">Welcome back, {userProfile?.full_name || 'User'}</p>
+              <div className="mt-4 flex items-center space-x-4">
+                <span className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold">
+                  {userProfile?.role === 'district_admin' ? '👨‍💼 District Administrator' : `👤 ${userProfile?.role}`}
                 </span>
                 {userProfile?.designation && (
-                  <span className="ml-2 text-gray-600">{userProfile.designation}</span>
+                  <span className="text-gray-600 font-medium">{userProfile.designation}</span>
                 )}
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-right slide-in-left">
               {centerInfo ? (
                 <>
-                  <h2 className="text-xl font-semibold text-blue-600">{centerInfo.name}</h2>
-                  <p className="text-gray-600">{centerInfo.type}</p>
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    {centerInfo.name}
+                  </h2>
+                  <p className="text-gray-600 font-medium">{centerInfo.type}</p>
                   <p className="text-sm text-gray-500">{centerInfo.address}</p>
                 </>
               ) : (
                 <div className="text-gray-500">
-                  <p>District-wide Access</p>
+                  <p className="text-xl font-semibold">🌐 District-wide Access</p>
                   <p className="text-sm">Managing multiple centers</p>
                 </div>
               )}
@@ -324,157 +432,156 @@ const AdminDashboard = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-blue-100">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Equipment</p>
-                <p className="text-2xl font-semibold text-gray-900">{equipment.length}</p>
+          {[{
+            title: "Total Equipment",
+            value: equipment.length,
+            icon: "📊",
+            gradient: "from-blue-500 to-blue-600",
+            bgColor: "bg-blue-100"
+          },
+          {
+            title: "Working Equipment",
+            value: equipment.filter(eq => eq.status === 'working').length,
+            icon: "✅",
+            gradient: "from-green-500 to-green-600",
+            bgColor: "bg-green-100"
+          },
+          {
+            title: "Needs Attention",
+            value: equipment.filter(eq => ['broken', 'under_repair'].includes(eq.status)).length,
+            icon: "⚠️",
+            gradient: "from-red-500 to-red-600",
+            bgColor: "bg-red-100"
+          },
+          {
+            title: "Pending Requests",
+            value: maintenanceRequests.filter(req => req.status === 'pending').length,
+            icon: "🔧",
+            gradient: "from-yellow-500 to-yellow-600",
+            bgColor: "bg-yellow-100"
+          }
+        ].map((stat, index) => (
+            <div key={index} className={`stats-card rounded-2xl p-6 bounce-in`} style={{animationDelay: `${index * 0.1}s`}}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{stat.title}</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                </div>
+                <div className={`stats-icon p-4 rounded-2xl ${stat.bgColor}`}>
+                  <span className="text-2xl">{stat.icon}</span>
+                </div>
               </div>
             </div>
-          </div>
+          ))}
+        </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-green-100">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Working Equipment</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {equipment.filter(eq => eq.status === 'working').length}
-                </p>
-              </div>
-            </div>
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bounce-in" style={{animationDelay: '0.2s'}}>
+            <PieChart 
+              data={equipmentStatusData} 
+              title="📈 Equipment Status Distribution" 
+            />
           </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-red-100">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L5.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Needs Attention</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {equipment.filter(eq => ['broken', 'under_repair'].includes(eq.status)).length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-yellow-100">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending Requests</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {maintenanceRequests.filter(req => req.status === 'pending').length}
-                </p>
-              </div>
-            </div>
+          <div className="bounce-in" style={{animationDelay: '0.3s'}}>
+            <BarChart 
+              data={maintenancePriorityData} 
+              title="🔧 Maintenance Priority Levels" 
+            />
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="bg-white rounded-lg shadow-md">
+        <div className="tab-navigation rounded-2xl shadow-2xl fade-in">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
+            <nav className="flex space-x-8 px-8">
               {[{
                 key: 'overview',
-                label: 'Equipment Overview'
+                label: '🏠 Equipment Overview',
+                icon: '🏠'
               },
               {
                 key: 'history',
-                label: 'Equipment History'
+                label: '📜 Equipment History',
+                icon: '📜'
               },
               {
                 key: 'transfers',
-                label: 'Transfers'
+                label: '🔄 Transfers',
+                icon: '🔄'
               },
               {
                 key: 'maintenance',
-                label: 'Maintenance'
+                label: '🔧 Maintenance',
+                icon: '🔧'
               },
               {
                 key: 'notifications',
-                label: `Notifications (${notifications.length})`
+                label: `🔔 Notifications (${notifications.length})`,
+                icon: '🔔'
               }].map(tab => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === tab.key
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  className={`tab-button py-6 px-2 border-b-2 font-medium text-sm transition-all duration-300 ${
+                    activeTab === tab.key ? 'active' : ''
                   }`}
                 >
+                  <span className="mr-2">{tab.icon}</span>
                   {tab.label}
                 </button>
               ))}
             </nav>
           </div>
 
-          <div className="p-6">
+          <div className="p-8">
             {/* Equipment Overview Tab */}
             {activeTab === 'overview' && (
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    Equipment {centerInfo ? `in ${centerInfo.name}` : 'Overview'}
+              <div className="fade-in">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    🏠 Equipment {centerInfo ? `in ${centerInfo.name}` : 'Overview'}
                   </h3>
                   <button
                     onClick={fetchDashboardData}
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    className="refresh-button px-6 py-3 rounded-xl font-semibold transition-all duration-300"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    Refresh
+                    Refresh Data
                   </button>
                 </div>
                 
                 {equipment.length === 0 ? (
-                  <div className="text-center py-12">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No equipment found</h3>
-                    <p className="mt-1 text-sm text-gray-500">
+                  <div className="text-center py-16">
+                    <div className="text-6xl mb-4">📭</div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No Equipment Found</h3>
+                    <p className="text-gray-500">
                       {centerInfo ? 'This center has no equipment registered.' : 'You may not have access to any centers.'}
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {equipment.map(eq => (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {equipment.map((eq, index) => (
                       <div 
                         key={eq.id} 
-                        className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-white"
+                        className="equipment-card rounded-2xl p-6 cursor-pointer bounce-in"
+                        style={{animationDelay: `${index * 0.05}s`}}
                         onClick={() => setSelectedEquipment(eq)}
                       >
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-medium text-gray-900 truncate">{eq.name}</h4>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${getStatusColor(eq.status)}`}>
+                        <div className="flex justify-between items-start mb-4">
+                          <h4 className="font-bold text-gray-900 text-lg truncate">{eq.name}</h4>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(eq.status)}`}>
                             {eq.status}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-600 mb-1">{eq.type} - {eq.category}</p>
-                        <p className="text-sm text-gray-500 font-mono">{eq.qr_code}</p>
-                        <p className="text-sm text-gray-500">{eq.location_within_center}</p>
+                        <p className="text-gray-600 mb-2 font-medium">{eq.type} - {eq.category}</p>
+                        <p className="text-gray-500 font-mono text-sm bg-gray-100 px-2 py-1 rounded">{eq.qr_code}</p>
+                        <p className="text-gray-500 mt-2">📍 {eq.location_within_center}</p>
                         {eq.is_critical && (
-                          <span className="inline-block mt-2 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            Critical Equipment
+                          <span className="inline-block mt-3 px-3 py-1 rounded-full text-xs font-bold priority-critical">
+                            🚨 Critical Equipment
                           </span>
                         )}
                       </div>
@@ -486,47 +593,48 @@ const AdminDashboard = () => {
 
             {/* Equipment History Tab */}
             {activeTab === 'history' && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Equipment History</h3>
+              <div className="fade-in">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">📜 Recent Equipment History</h3>
                 {equipmentHistory.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No equipment history available</p>
+                  <div className="text-center py-12">
+                    <div className="text-4xl mb-4">📝</div>
+                    <p className="text-gray-500 text-lg">No equipment history available</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                  <div className="data-table">
+                    <table className="min-w-full">
+                      <thead className="table-header">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Equipment</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Change Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Changed By</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Changes</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Equipment</th>
+                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Change Type</th>
+                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Changed By</th>
+                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Changes</th>
+                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Date</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {equipmentHistory.map(history => (
-                          <tr key={history.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
+                      <tbody className="divide-y divide-gray-200">
+                        {equipmentHistory.map((history, index) => (
+                          <tr key={history.id} className="table-row slide-in-left" style={{animationDelay: `${index * 0.05}s`}}>
+                            <td className="px-6 py-4">
                               <div>
-                                <div className="text-sm font-medium text-gray-900">{history.equipment?.name || 'Unknown Equipment'}</div>
+                                <div className="font-semibold text-gray-900">{history.equipment?.name || 'Unknown Equipment'}</div>
                                 <div className="text-sm text-gray-500 font-mono">{history.equipment?.qr_code}</div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <td className="px-6 py-4">
+                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500 text-white">
                                 {history.change_type}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <td className="px-6 py-4 font-medium text-gray-900">
                               {history.changed_by_user?.full_name || 'Unknown User'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              <span className="text-red-600">{history.old_value}</span>
+                            <td className="px-6 py-4">
+                              <span className="text-red-600 font-semibold">{history.old_value}</span>
                               <span className="mx-2 text-gray-400">→</span>
-                              <span className="text-green-600">{history.new_value}</span>
+                              <span className="text-green-600 font-semibold">{history.new_value}</span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-6 py-4 text-gray-500 font-medium">
                               {new Date(history.created_at).toLocaleDateString()}
                             </td>
                           </tr>
@@ -540,55 +648,56 @@ const AdminDashboard = () => {
 
             {/* Equipment Transfers Tab */}
             {activeTab === 'transfers' && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Equipment Transfers</h3>
+              <div className="fade-in">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">🔄 Equipment Transfers</h3>
                 {transfers.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No transfers found</p>
+                  <div className="text-center py-12">
+                    <div className="text-4xl mb-4">📦</div>
+                    <p className="text-gray-500 text-lg">No transfers found</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                  <div className="data-table">
+                    <table className="min-w-full">
+                      <thead className="table-header">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Equipment</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From → To</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested By</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Equipment</th>
+                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">From → To</th>
+                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Requested By</th>
+                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Reason</th>
+                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Date</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {transfers.map(transfer => (
-                          <tr key={transfer.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
+                      <tbody className="divide-y divide-gray-200">
+                        {transfers.map((transfer, index) => (
+                          <tr key={transfer.id} className="table-row slide-in-left" style={{animationDelay: `${index * 0.05}s`}}>
+                            <td className="px-6 py-4">
                               <div>
-                                <div className="text-sm font-medium text-gray-900">{transfer.equipment?.name || 'Unknown Equipment'}</div>
+                                <div className="font-semibold text-gray-900">{transfer.equipment?.name || 'Unknown Equipment'}</div>
                                 <div className="text-sm text-gray-500 font-mono">{transfer.equipment?.qr_code}</div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <td className="px-6 py-4">
                               <div className="space-y-1">
-                                <div className="font-medium">{transfer.from_center?.name || 'Unknown Center'}</div>
-                                <div className="text-xs text-gray-500 text-center">↓</div>
-                                <div className="font-medium">{transfer.to_center?.name || 'Unknown Center'}</div>
+                                <div className="font-semibold text-blue-600">{transfer.from_center?.name || 'Unknown Center'}</div>
+                                <div className="text-center text-gray-400">↓</div>
+                                <div className="font-semibold text-green-600">{transfer.to_center?.name || 'Unknown Center'}</div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <td className="px-6 py-4 font-medium text-gray-900">
                               {transfer.requested_by_user?.full_name || 'Unknown User'}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-900">
-                              <div className="max-w-xs truncate" title={transfer.transfer_reason}>
+                            <td className="px-6 py-4">
+                              <div className="max-w-xs truncate font-medium text-gray-700" title={transfer.transfer_reason}>
                                 {transfer.transfer_reason}
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(transfer.status)}`}>
+                            <td className="px-6 py-4">
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(transfer.status)}`}>
                                 {transfer.status}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-6 py-4 text-gray-500 font-medium">
                               {new Date(transfer.transfer_date).toLocaleDateString()}
                             </td>
                           </tr>
@@ -602,46 +711,47 @@ const AdminDashboard = () => {
 
             {/* Maintenance Requests Tab */}
             {activeTab === 'maintenance' && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Maintenance Requests</h3>
+              <div className="fade-in">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">🔧 Maintenance Requests</h3>
                 {maintenanceRequests.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No maintenance requests found</p>
+                  <div className="text-center py-12">
+                    <div className="text-4xl mb-4">🛠️</div>
+                    <p className="text-gray-500 text-lg">No maintenance requests found</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {maintenanceRequests.map(request => (
-                      <div key={request.id} className="border rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
-                        <div className="flex justify-between items-start mb-2">
+                    {maintenanceRequests.map((request, index) => (
+                      <div key={request.id} className="equipment-card rounded-2xl p-6 slide-in-left" style={{animationDelay: `${index * 0.05}s`}}>
+                        <div className="flex justify-between items-start mb-4">
                           <div className="flex-1">
-                            <h4 className="font-medium text-gray-900">{request.title}</h4>
-                            <p className="text-sm text-gray-600">
+                            <h4 className="font-bold text-gray-900 text-lg">{request.title}</h4>
+                            <p className="text-gray-600 font-medium">
                               {request.equipment?.name || 'Unknown Equipment'} ({request.equipment?.qr_code})
                             </p>
-                            <p className="text-sm text-gray-600 mt-1">Request #{request.request_number}</p>
+                            <p className="text-gray-600 mt-1 font-mono text-sm">Request #{request.request_number}</p>
                           </div>
                           <div className="flex space-x-2 ml-4">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(request.priority)}`}>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${getPriorityColor(request.priority)}`}>
                               {request.priority}
                             </span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(request.status)}`}>
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(request.status)}`}>
                               {request.status}
                             </span>
                           </div>
                         </div>
-                        <p className="text-sm text-gray-700 mb-3">{request.description}</p>
-                        <div className="flex flex-wrap justify-between items-center text-xs text-gray-500 gap-2">
+                        <p className="text-gray-700 mb-4 font-medium leading-relaxed">{request.description}</p>
+                        <div className="flex flex-wrap justify-between items-center text-sm text-gray-500 gap-2">
                           <div className="flex flex-wrap gap-4">
-                            <span>Requested by: {request.requested_by_user?.full_name || 'Unknown User'}</span>
+                            <span className="font-medium">👤 Requested by: {request.requested_by_user?.full_name || 'Unknown User'}</span>
                             {request.assigned_to_user && (
-                              <span>Assigned to: {request.assigned_to_user.full_name}</span>
+                              <span className="font-medium">🔧 Assigned to: {request.assigned_to_user.full_name}</span>
                             )}
                           </div>
                           <div className="flex gap-4">
                             {request.estimated_cost && (
-                              <span>Cost: ₹{Number(request.estimated_cost).toLocaleString()}</span>
+                              <span className="font-semibold text-green-600">💰 Cost: ₹{Number(request.estimated_cost).toLocaleString()}</span>
                             )}
-                            <span>{new Date(request.requested_date).toLocaleDateString()}</span>
+                            <span className="font-medium">📅 {new Date(request.requested_date).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </div>
@@ -653,50 +763,48 @@ const AdminDashboard = () => {
 
             {/* Notifications Tab */}
             {activeTab === 'notifications' && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Notifications</h3>
+              <div className="fade-in">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">🔔 Recent Notifications</h3>
                 {notifications.length === 0 ? (
-                  <div className="text-center py-8">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19H6.931A1.922 1.922 0 015 17.087V8c0-.552.224-1.052.586-1.414S6.448 6 7 6h10c.552 0 1.052.224 1.414.586S19 7.448 19 8v4.069" />
-                    </svg>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No notifications</h3>
-                    <p className="mt-1 text-sm text-gray-500">You're all caught up!</p>
+                  <div className="text-center py-16">
+                    <div className="text-6xl mb-4">🔕</div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No Notifications</h3>
+                    <p className="text-gray-500 text-lg">You're all caught up! 🎉</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {notifications.map(notification => (
+                  <div className="space-y-4">
+                    {notifications.map((notification, index) => (
                       <div 
                         key={notification.id} 
-                        className={`border rounded-lg p-4 transition-colors ${
-                          notification.is_read ? 'bg-gray-50 border-gray-200' : 'bg-white border-blue-200 shadow-sm'
+                        className={`rounded-2xl p-6 transition-all duration-300 slide-in-left ${
+                          notification.is_read ? 'notification-read' : 'notification-unread'
                         }`}
+                        style={{animationDelay: `${index * 0.05}s`}}
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-1 flex-wrap">
-                              <h4 className="font-medium text-gray-900">{notification.title}</h4>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(notification.priority)}`}>
+                            <div className="flex items-center space-x-3 mb-2 flex-wrap">
+                              <h4 className="font-bold text-gray-900 text-lg">{notification.title}</h4>
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold ${getPriorityColor(notification.priority)}`}>
                                 {notification.priority}
                               </span>
-                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-500 text-white">
                                 {notification.type}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-700 mb-2">{notification.message}</p>
+                            <p className="text-gray-700 mb-3 font-medium leading-relaxed">{notification.message}</p>
                             {notification.equipment && (
-                              <p className="text-xs text-gray-500">
-                                Equipment: {notification.equipment.name} ({notification.equipment.qr_code})
+                              <p className="text-sm text-gray-500 font-medium bg-gray-100 px-3 py-1 rounded-lg inline-block">
+                                🔧 Equipment: {notification.equipment.name} ({notification.equipment.qr_code})
                               </p>
                             )}
                           </div>
-                          <div className="text-right ml-4">
-                            <div className="text-xs text-gray-500 whitespace-nowrap">
-                              {new Date(notification.created_at).toLocaleDateString()}
+                          <div className="text-right ml-6">
+                            <div className="text-sm text-gray-500 font-medium whitespace-nowrap">
+                              📅 {new Date(notification.created_at).toLocaleDateString()}
                             </div>
                             {!notification.is_read && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full mt-1 ml-auto"></div>
+                              <div className="w-3 h-3 bg-blue-500 rounded-full mt-2 ml-auto animate-pulse"></div>
                             )}
                           </div>
                         </div>
@@ -711,134 +819,154 @@ const AdminDashboard = () => {
 
         {/* Equipment Detail Modal */}
         {selectedEquipment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-screen overflow-y-auto">
-              <div className="flex justify-between items-start mb-6">
+          <div className="modal-overlay fixed inset-0 flex items-center justify-center z-50 p-4">
+            <div className="modal-content rounded-3xl p-8 max-w-6xl w-full max-h-screen overflow-y-auto">
+              <div className="flex justify-between items-start mb-8">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900">{selectedEquipment.name}</h3>
-                  <p className="text-sm text-gray-500 font-mono mt-1">{selectedEquipment.qr_code}</p>
+                  <h3 className="text-3xl font-bold text-gray-900">{selectedEquipment.name}</h3>
+                  <p className="text-lg text-gray-500 font-mono mt-2 bg-gray-100 px-3 py-1 rounded-lg inline-block">{selectedEquipment.qr_code}</p>
                 </div>
                 <button 
                   onClick={() => setSelectedEquipment(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-full"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-600 mb-2">Basic Information</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Status:</span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedEquipment.status)}`}>
-                          {selectedEquipment.status}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Type:</span>
-                        <span className="text-sm text-gray-900">{selectedEquipment.type}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Category:</span>
-                        <span className="text-sm text-gray-900">{selectedEquipment.category}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Manufacturer:</span>
-                        <span className="text-sm text-gray-900">{selectedEquipment.manufacturer || 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Model:</span>
-                        <span className="text-sm text-gray-900">{selectedEquipment.model || 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Serial Number:</span>
-                        <span className="text-sm text-gray-900 font-mono">{selectedEquipment.serial_number || 'N/A'}</span>
-                      </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div className="bg-gray-50 rounded-2xl p-6">
+                    <h4 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
+                      <span className="mr-2">📋</span> Basic Information
+                    </h4>
+                    <div className="space-y-3">
+                      {[{
+                        label: 'Status',
+                        value: selectedEquipment.status,
+                        special: true
+                      },
+                      {
+                        label: 'Type',
+                        value: selectedEquipment.type
+                      },
+                      {
+                        label: 'Category',
+                        value: selectedEquipment.category
+                      },
+                      {
+                        label: 'Manufacturer',
+                        value: selectedEquipment.manufacturer || 'N/A'
+                      },
+                      {
+                        label: 'Model',
+                        value: selectedEquipment.model || 'N/A'
+                      },
+                      {
+                        label: 'Serial Number',
+                        value: selectedEquipment.serial_number || 'N/A',
+                        mono: true
+                      }
+                    ].map((item, index) => (
+                        <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="font-medium text-gray-600">{item.label}:</span>
+                          {item.special ? (
+                            <span className={`px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(item.value)}`}>
+                              {item.value}
+                            </span>
+                          ) : (
+                            <span className={`font-semibold text-gray-900 ${item.mono ? 'font-mono text-sm' : ''}`}>
+                              {item.value}
+                            </span>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-600 mb-2">Location & Financial</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Location:</span>
-                        <span className="text-sm text-gray-900">{selectedEquipment.location_within_center || 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Purchase Cost:</span>
-                        <span className="text-sm text-gray-900">
-                          {selectedEquipment.purchase_cost ? `₹${Number(selectedEquipment.purchase_cost).toLocaleString()}` : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Current Value:</span>
-                        <span className="text-sm text-gray-900">
-                          {selectedEquipment.current_value ? `₹${Number(selectedEquipment.current_value).toLocaleString()}` : 'N/A'}
-                        </span>
-                      </div>
+                  <div className="bg-gray-50 rounded-2xl p-6">
+                    <h4 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
+                      <span className="mr-2">💰</span> Location & Financial
+                    </h4>
+                    <div className="space-y-3">
+                      {[{
+                        label: 'Location',
+                        value: selectedEquipment.location_within_center || 'N/A'
+                      },
+                      {
+                        label: 'Purchase Cost',
+                        value: selectedEquipment.purchase_cost ? `₹${Number(selectedEquipment.purchase_cost).toLocaleString()}` : 'N/A'
+                      },
+                      {
+                        label: 'Current Value',
+                        value: selectedEquipment.current_value ? `₹${Number(selectedEquipment.current_value).toLocaleString()}` : 'N/A'
+                      }
+                    ].map((item, index) => (
+                        <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="font-medium text-gray-600">{item.label}:</span>
+                          <span className="font-semibold text-gray-900">{item.value}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-600 mb-2">Dates & Maintenance</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Installation Date:</span>
-                        <span className="text-sm text-gray-900">
-                          {selectedEquipment.installation_date ? 
-                            new Date(selectedEquipment.installation_date).toLocaleDateString() : 
-                            'N/A'
-                          }
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Warranty Expires:</span>
-                        <span className="text-sm text-gray-900">
-                          {selectedEquipment.warranty_expiry_date ? 
-                            new Date(selectedEquipment.warranty_expiry_date).toLocaleDateString() : 
-                            'N/A'
-                          }
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Next Maintenance:</span>
-                        <span className="text-sm text-gray-900">
-                          {selectedEquipment.next_maintenance_due ? 
-                            new Date(selectedEquipment.next_maintenance_due).toLocaleDateString() : 
-                            'N/A'
-                          }
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Critical Equipment:</span>
-                        <span className={`text-sm font-medium ${selectedEquipment.is_critical ? 'text-red-600' : 'text-gray-600'}`}>
-                          {selectedEquipment.is_critical ? 'Yes' : 'No'}
-                        </span>
-                      </div>
+                <div className="space-y-6">
+                  <div className="bg-gray-50 rounded-2xl p-6">
+                    <h4 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
+                      <span className="mr-2">📅</span> Dates & Maintenance
+                    </h4>
+                    <div className="space-y-3">
+                      {[{
+                        label: 'Installation Date',
+                        value: selectedEquipment.installation_date ? new Date(selectedEquipment.installation_date).toLocaleDateString() : 'N/A'
+                      },
+                      {
+                        label: 'Warranty Expires',
+                        value: selectedEquipment.warranty_expiry_date ? new Date(selectedEquipment.warranty_expiry_date).toLocaleDateString() : 'N/A'
+                      },
+                      {
+                        label: 'Next Maintenance',
+                        value: selectedEquipment.next_maintenance_due ? new Date(selectedEquipment.next_maintenance_due).toLocaleDateString() : 'N/A'
+                      },
+                      {
+                        label: 'Critical Equipment',
+                        value: selectedEquipment.is_critical ? 'Yes' : 'No',
+                        critical: selectedEquipment.is_critical
+                      }
+                    ].map((item, index) => (
+                        <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="font-medium text-gray-600">{item.label}:</span>
+                          <span className={`font-semibold ${item.critical ? 'text-red-600' : 'text-gray-900'}`}>
+                            {item.value}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
                   {selectedEquipment.notes && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Notes</h4>
-                      <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-md">{selectedEquipment.notes}</p>
+                    <div className="bg-gray-50 rounded-2xl p-6">
+                      <h4 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
+                        <span className="mr-2">📝</span> Notes
+                      </h4>
+                      <p className="text-gray-900 bg-white p-4 rounded-xl font-medium leading-relaxed">
+                        {selectedEquipment.notes}
+                      </p>
                     </div>
                   )}
                 </div>
               </div>
 
               {selectedEquipment.specifications && (
-                <div className="mt-6">
-                  <h4 className="text-sm font-medium text-gray-600 mb-2">Technical Specifications</h4>
-                  <div className="bg-gray-50 p-4 rounded-md">
-                    <pre className="text-sm text-gray-900 whitespace-pre-wrap overflow-x-auto">
+                <div className="mt-8 bg-gray-50 rounded-2xl p-6">
+                  <h4 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
+                    <span className="mr-2">⚙️</span> Technical Specifications
+                  </h4>
+                  <div className="bg-white p-6 rounded-xl">
+                    <pre className="text-sm text-gray-900 whitespace-pre-wrap overflow-x-auto font-mono">
                       {typeof selectedEquipment.specifications === 'string' 
                         ? selectedEquipment.specifications 
                         : JSON.stringify(selectedEquipment.specifications, null, 2)
