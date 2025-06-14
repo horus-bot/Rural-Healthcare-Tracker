@@ -85,8 +85,8 @@ const Login = () => {
   // Don't show anything if we're in the middle of authenticating
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen">
+        <div className="loading-spinner"></div>
       </div>
     );
   }
@@ -94,33 +94,33 @@ const Login = () => {
   // Don't show login form if already authenticated
   if (isAuthenticated && userProfile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Redirecting...</p>
+      <div className="min-h-screen">
+        <div className="redirect-container">
+          <div className="loading-spinner success"></div>
+          <p className="redirect-text">Redirecting...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+    <div className="min-h-screen">
       <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
-          <p className="mt-2 text-sm text-gray-600">Rural Health Equipment Management System</p>
+        <div className="header-container">
+          <h2 className="text-3xl">Sign in to your account</h2>
+          <p className="text-sm text-gray-600">Rural Health Equipment Management System</p>
         </div>
         
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+        <form className="login-form" onSubmit={handleLogin}>
           {(error || contextError) && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
+            <div className="bg-red-50">
               {error || contextError}
             </div>
           )}
 
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          <div className="form-fields">
+            <div className="form-group">
+              <label htmlFor="email" className="form-label">
                 Email Address
               </label>
               <input
@@ -130,14 +130,14 @@ const Login = () => {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="form-input"
                 placeholder="Enter your email address"
                 disabled={loginLoading}
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <div className="form-group">
+              <label htmlFor="password" className="form-label">
                 Password
               </label>
               <input
@@ -147,7 +147,7 @@ const Login = () => {
                 required
                 value={formData.password}
                 onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="form-input"
                 placeholder="Enter your password"
                 disabled={loginLoading}
               />
@@ -157,19 +157,18 @@ const Login = () => {
           <button
             type="submit"
             disabled={loginLoading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            className="login-button"
           >
             {loginLoading ? 'Signing in...' : 'Sign in'}
           </button>
 
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
+          <div className="signup-link-container">
+            <p className="signup-text">
               Don't have an account?{' '}
-              <Link to="/signup" className="font-medium text-indigo-600 hover:text-indigo-500">
+              <Link to="/signup" className="signup-link">
                 Sign up
               </Link>
             </p>
-         
           </div>
         </form>
       </div>
